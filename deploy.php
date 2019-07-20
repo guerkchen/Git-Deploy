@@ -1,230 +1,114 @@
 <?php
-$content = file_get_contents("php://input");
-$json    = json_decode($content, true);
-$file    = fopen(LOGFILE, "a");
+require_once('config.php');
+
+//read webhook contents, open logfile in append mode & get current time
+$payload = file_get_contents('php://input');
+$log     = fopen(LOGFILE, 'a');
 $time    = time();
-$token   = false;
-$sha     = false;
-$DIR     = preg_match("/\/$/", DIR) ? DIR : DIR . "/";
 
-// retrieve the token
-if (!$token && isset($_SERVER["HTTP_X_HUB_SIGNATURE"])) {
-    list($algo, $token) = explode("=", $_SERVER["HTTP_X_HUB_SIGNATURE"], 2) + array("", "");
-} elseif (isset($_SERVER["HTTP_X_GITLAB_TOKEN"])) {
-    $token = $_SERVER["HTTP_X_GITLAB_TOKEN"];
-} elseif (isset($_GET["token"])) {
-    $token = $_GET["token"];
-}
+// log the time to differentiate log entries
+date_default_timezone_set('UTC');
+fputs($log, "\n" . date('d-m-Y (H:i:s T)', $time) . ' connecting from: ' . $_SERVER['REMOTE_ADDR'] . "\n");
 
-// retrieve the checkout_sha
-if (isset($json["checkout_sha"])) {
-    $sha = $json["checkout_sha"];
-} elseif (isset($_SERVER["checkout_sha"])) {
-    $sha = $_SERVER["checkout_sha"];
-} elseif (isset($_GET["sha"])) {
-    $sha = $_GET["sha"];
-}
-
-// write the time to the log
-date_default_timezone_set("UTC");
-fputs($file, date("d-m-Y (H:i:s)", $time) . "\n");
-
-// specify that the response does not contain HTML
-header("Content-Type: text/plain");
-
-// use user-defined max_execution_time
-if (!empty(MAX_EXECUTION_TIME)) {
-    ini_set("max_execution_time", MAX_EXECUTION_TIME);
-}
-
-// function to forbid access
-function forbid($file, $reason) {
-    // format the error
-    $error = "=== ERROR: " . $reason . " ===\n*** ACCESS DENIED ***\n";
-
-    // forbid
-    http_response_code(403);
-
-    // write the error to the log and the body
-    fputs($file, $error . "\n\n");
-    echo $error;
-
-    // close the log
-    fclose($file);
-
-    // stop executing
-    exit;
-}
-
-// Check for a GitHub signature
-if (!empty(TOKEN) && isset($_SERVER["HTTP_X_HUB_SIGNATURE"]) && $token !== hash_hmac($algo, $content, TOKEN)) {
-    forbid($file, "X-Hub-Signature does not match TOKEN");
-// Check for a GitLab token
-} elseif (!empty(TOKEN) && isset($_SERVER["HTTP_X_GITLAB_TOKEN"]) && $token !== TOKEN) {
-    forbid($file, "X-GitLab-Token does not match TOKEN");
-// Check for a $_GET token
-} elseif (!empty(TOKEN) && isset($_GET["token"]) && $token !== TOKEN) {
-    forbid($file, "\$_GET[\"token\"] does not match TOKEN");
-// if none of the above match, but a token exists, exit
-} elseif (!empty(TOKEN) && !isset($_SERVER["HTTP_X_HUB_SIGNATURE"]) && !isset($_SERVER["HTTP_X_GITLAB_TOKEN"]) && !isset($_GET["token"])) {
-    forbid($file, "No token detected");
+//check for GitHub signature header
+if (isset($_SERVER['HTTP_X_HUB_SIGNATURE'])) {
+    $gitHeader = $_SERVER['HTTP_X_HUB_SIGNATURE'];
 } else {
-    // check if pushed branch matches branch specified in config
-    if ($json["ref"] === BRANCH) {
-        fputs($file, $content . PHP_EOL);
+    respond($log, 'ERROR: X-Hub-Signature header not found', 403);
+}
 
-        // ensure directory is a repository
-        if (file_exists($DIR . ".git") && is_dir($DIR)) {
-            // change directory to the repository
-            chdir($DIR);
+//split header into algorithm and hash
+list($algo, $gitHash) = explode('=', $gitHeader, 2);
 
-            // write to the log
-            fputs($file, "*** AUTO PULL INITIATED ***" . "\n");
+//generate hash from payload
+$payloadHash = hash_hmac($algo, $payload, SECRET);
 
-            /**
-             * Attempt to reset specific hash if specified
-             */
-            if (!empty($_GET["reset"]) && $_GET["reset"] === "true") {
-                // write to the log
-                fputs($file, "*** RESET TO HEAD INITIATED ***" . "\n");
+//compare hashes
+if (!hash_equals($payloadHash, $gitHash)) {
+    //hash doesn't match
+    respond($log, 'ERROR: Hashes do not match', 403);
+} 
+else { //hash matches
+    $json = json_decode($payload, true);
 
-                exec(GIT . " reset --hard HEAD 2>&1", $output, $exit);
+    //check for GitHub ping and respond
+    if (isset($json['zen'])) {
+        slack_message('ping', $json);
+        echo 'Congratulations, Webhook set up successfully.';
+        respond($log, 'SUCCESS: Github ping successful', 200);
+    }
 
-                // reformat the output as a string
-                $output = (!empty($output) ? implode("\n", $output) : "[no output]") . "\n";
+    //check if push matches desired branch
+    if ($json['ref'] === BRANCH) {
+        //check for valid git directory
+        if (is_dir(DIR) && file_exists(DIR . '.git')) {
+            //perform git pull
+            chdir(DIR);
+            $output = shell_exec(GIT . ' pull');
+            fputs($log, 'Git: ' . $output);
 
-                // if an error occurred, return 500 and log the error
-                if ($exit !== 0) {
-                    http_response_code(500);
-                    $output = "=== ERROR: Reset to head failed using GIT `" . GIT . "` ===\n" . $output;
+            //delete files if DELETION array is not empty
+            if (!empty(DELETION)) {
+                foreach (DELETION as $file) {
+                    //check that file exists
+                    if (file_exists($file)) {
+                        fputs($log, 'WARNING: ' . $file . ' was deleted' . "\n");
+                        unlink($file);
+                    }
                 }
-
-                // write the output to the log and the body
-                fputs($file, $output);
-                echo $output;
             }
-
-            /**
-             * Attempt to execute BEFORE_PULL if specified
-             */
-            if (!empty(BEFORE_PULL)) {
-                // write to the log
-                fputs($file, "*** BEFORE_PULL INITIATED ***" . "\n");
-
-                // execute the command, returning the output and exit code
-                exec(BEFORE_PULL . " 2>&1", $output, $exit);
-
-                // reformat the output as a string
-                $output = (!empty($output) ? implode("\n", $output) : "[no output]") . "\n";
-
-                // if an error occurred, return 500 and log the error
-                if ($exit !== 0) {
-                    http_response_code(500);
-                    $output = "=== ERROR: BEFORE_PULL `" . BEFORE_PULL . "` failed ===\n" . $output;
-                }
-
-                // write the output to the log and the body
-                fputs($file, $output);
-                echo $output;
-            }
-
-            /**
-             * Attempt to pull, returing the output and exit code
-             */
-            exec(GIT . " pull 2>&1", $output, $exit);
-
-            // reformat the output as a string
-            $output = (!empty($output) ? implode("\n", $output) : "[no output]") . "\n";
-
-            // if an error occurred, return 500 and log the error
-            if ($exit !== 0) {
-                http_response_code(500);
-                $output = "=== ERROR: Pull failed using GIT `" . GIT . "` and DIR `" . DIR . "` ===\n" . $output;
-            }
-
-            // write the output to the log and the body
-            fputs($file, $output);
-            echo $output;
-
-            /**
-             * Attempt to checkout specific hash if specified
-             */
-            if (!empty($sha)) {
-                // write to the log
-                fputs($file, "*** RESET TO HASH INITIATED ***" . "\n");
-
-                exec(GIT . " reset --hard {$sha} 2>&1", $output, $exit);
-
-                // reformat the output as a string
-                $output = (!empty($output) ? implode("\n", $output) : "[no output]") . "\n";
-
-                // if an error occurred, return 500 and log the error
-                if ($exit !== 0) {
-                    http_response_code(500);
-                    $output = "=== ERROR: Reset failed using GIT `" . GIT . "` and \$sha `" . $sha . "` ===\n" . $output;
-                }
-
-                // write the output to the log and the body
-                fputs($file, $output);
-                echo $output;
-            }
-
-            /**
-             * Attempt to execute AFTER_PULL if specified
-             */
-            if (!empty(AFTER_PULL)) {
-                // write to the log
-                fputs($file, "*** AFTER_PULL INITIATED ***" . "\n");
-
-                // execute the command, returning the output and exit code
-                exec(AFTER_PULL . " 2>&1", $output, $exit);
-
-                // reformat the output as a string
-                $output = (!empty($output) ? implode("\n", $output) : "[no output]") . "\n";
-
-                // if an error occurred, return 500 and log the error
-                if ($exit !== 0) {
-                    http_response_code(500);
-                    $output = "=== ERROR: AFTER_PULL `" . AFTER_PULL . "` failed ===\n" . $output;
-                }
-
-                // write the output to the log and the body
-                fputs($file, $output);
-                echo $output;
-            }
-
-            // write to the log
-            fputs($file, "*** AUTO PULL COMPLETE ***" . "\n");
         } else {
-            // prepare the generic error
-            $error = "=== ERROR: DIR `" . DIR . "` is not a repository ===\n";
-
-            // try to detemrine the real error
-            if (!file_exists(DIR)) {
-                $error = "=== ERROR: DIR `" . DIR . "` does not exist ===\n";
-            } elseif (!is_dir(DIR)) {
-                $error = "=== ERROR: DIR `" . DIR . "` is not a directory ===\n";
-            }
-
-            // bad request
-            http_response_code(400);
-
-            // write the error to the log and the body
-            fputs($file, $error);
-            echo $error;
+            respond($log, 'ERROR: Directory not found or is not a Git repository', 500);
         }
-    } else{
-        $error = "=== ERROR: Pushed branch `" . $json["ref"] . "` does not match BRANCH `" . BRANCH . "` ===\n";
+    } else {
+        echo 'An alternative branch was updated to the one specified. No action was performed.';
+        respond($log, 'WARNING: Incorrect branch', 200);
+    }
 
-        // bad request
-        http_response_code(400);
-
-        // write the error to the log and the body
-        fputs($file, $error);
-        echo $error;
+    //Check output of git pull
+    if (strncmp($output, 'Already', 7) === 0) {
+        slack_message('warning', $json);
+        echo 'The git pull was successful but no changes were made.';
+        respond($log, 'SUCCESS: Git pull was successful but no changes were made', 200);
+    } else {
+        slack_message('success', $json);
+        echo 'Congratulations, Git pull was successful.';
+        respond($log, 'SUCCESS: Git pull was successful', 200);
     }
 }
 
-// close the log
-fputs($file, "\n\n" . PHP_EOL);
-fclose($file);
+function respond(&$log, $text, $response_code) {
+    fputs($log, $text . "\n");
+    fclose($log);
+    http_response_code($response_code);
+    exit;
+}
+
+function slack_message($type, &$json) {
+    switch ($type) {
+        case 'success':
+            $message = '{"attachments":[{"fallback":"The website deployment was successful.","color":"good","text":"The repository was successfully deployed to the server.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
+            curl_message($message);
+            break;
+        case 'warning':
+            $message = '{"attachments":[{"fallback":"The repository was deployed but no changes were made.","color":"warning","text":"The repository was deployed but no changes were made.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
+            curl_message($message);
+            break;
+        case 'ping':
+            $message = '{"attachments":[{"fallback":"The webhook was set up successfully.","color":"good","text":"The webhook was set up successfully.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","actions":[{"type":"button","text":"View Repository","url":"' . $json['html_url'] . '"}]}]}';
+            curl_message($message);
+            break;
+    }
+}
+
+function curl_message(&$message) {
+    $curl = curl_init(SLACK_HOOK);
+    curl_setopt_array($curl, [
+        CURLOPT_POST => 1,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => 1,
+        CURLOPT_POSTFIELDS => $message
+    ]);
+    curl_exec($curl);
+    curl_close($curl);
+}
