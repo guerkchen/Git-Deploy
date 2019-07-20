@@ -85,19 +85,21 @@ function respond(&$log, $text, $response_code) {
 }
 
 function slack_message($type, &$json) {
-    switch ($type) {
-        case 'success':
-            $message = '{"attachments":[{"fallback":"The website deployment was successful.","color":"good","text":"The repository was successfully deployed to the server.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
-            curl_message($message);
-            break;
-        case 'warning':
-            $message = '{"attachments":[{"fallback":"The repository was deployed but no changes were made.","color":"warning","text":"The repository was deployed but no changes were made.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
-            curl_message($message);
-            break;
-        case 'ping':
-            $message = '{"attachments":[{"fallback":"The webhook was set up successfully.","color":"good","text":"The webhook was set up successfully.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","actions":[{"type":"button","text":"View Repository","url":"' . $json['html_url'] . '"}]}]}';
-            curl_message($message);
-            break;
+    if (!empty(SLACK_HOOK)) {
+        switch ($type) {
+            case 'success':
+                $message = '{"attachments":[{"fallback":"The website deployment was successful.","color":"good","text":"The repository was successfully deployed to the server.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
+                curl_message($message);
+                break;
+            case 'warning':
+                $message = '{"attachments":[{"fallback":"The repository was deployed but no changes were made.","color":"warning","text":"The repository was deployed but no changes were made.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","ts":"' . strtotime($json['head_commit']['timestamp']) . '","actions":[{"type":"button","text":"View Commit","url":"' . $json['head_commit']['url'] . '"},{"type":"button","text":"View Website","url":"https://danturn.co.uk"}]}]}';
+                curl_message($message);
+                break;
+            case 'ping':
+                $message = '{"attachments":[{"fallback":"The webhook was set up successfully.","color":"good","text":"The webhook was set up successfully.","footer":"GitHub","footer_icon":"https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png","actions":[{"type":"button","text":"View Repository","url":"' . $json['html_url'] . '"}]}]}';
+                curl_message($message);
+                break;
+        }
     }
 }
 
