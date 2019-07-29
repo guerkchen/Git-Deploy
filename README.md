@@ -1,8 +1,8 @@
 # Git Deploy
 
-A PHP script to automatically pull from a GitHub repository to a web server when it is updated. 
+A PHP script to automatically pull from a GitHub repository  when it is updated. 
 
-You can configure which branch this script pulls from.
+You can configure which branch to pull from,  files to be deleted after this pull (e.g. .gitignore, LICENSE, etc.) and integrate with Slack to know when the pull has been successful. 
 
 ## Getting Started
 
