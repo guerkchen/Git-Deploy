@@ -1,10 +1,8 @@
-# git-deploy
+# Git Deploy
 
-A PHP script to automatically pull from a repository to a web server (using a webhook on GitHub, GitLab, or Bitbucket).
+A PHP script to automatically pull from a GitHub repository to a web server when it is updated. 
 
-You can configure which branch this script pulls from. This script is useful for both development and production servers.
-
----
+You can configure which branch this script pulls from.
 
 ## On your server
 
@@ -13,8 +11,6 @@ You can configure which branch this script pulls from. This script is useful for
 Generate an SSH key and add it to your account so that `git pull` can be run without a password.
 
 - [GitHub documentation](https://help.github.com/articles/generating-ssh-keys/)
-- [GitLab documentation](http://doc.gitlab.com/ce/ssh/README.html)
-- [Bitbucket documentation](https://confluence.atlassian.com/bitbucket/add-an-ssh-key-to-an-account-302811853.html)
 
 ### Configuration
 
@@ -44,7 +40,7 @@ When __deploy.php__ is called by the web-hook, the webserver user (`www`, `www-d
 
 ---
 
-## On GitHub | GitLab | Bitbucket
+## On GitHub
 
 ### GitHub
 
@@ -60,43 +56,4 @@ Click "Add webhook" to save your settings, and the script should start working.
 
 ![Example screenshot showing GitHub webhook settings](https://cloud.githubusercontent.com/assets/1123997/25409764/f05526d0-29d8-11e7-858d-f28de59bd300.png)
 
-### GitLab
 
-In your repository, navigate to Settings &rarr; Integrations, and use the following settings:
-
-- URL: https://www.yoursite.com/git-deploy/deploy.php
-- Secret Token: The value of TOKEN in config.php
-- Trigger: :ballot_box_with_check: Push events
-- Enable SSL verification: :ballot_box_with_check: (only if using SSL, see [GitLab's documentation](https://gitlab.com/help/user/project/integrations/webhooks#ssl-verification) for more details)
-
-Click "Add webhook" to save your settings, and the script should start working.
-
-![Example screenshot showing GitLab webhook settings](https://cloud.githubusercontent.com/assets/1123997/25409763/f0540a16-29d8-11e7-95d1-5570c574fde0.png)
-
-### Bitbucket
-
-In your repository, navigate to Settings &rarr; Webhooks &rarr; Add webhook, and use the following settings:
-
-- Title: git-deploy
-- URL: https://www.yoursite.com/git-deploy/deploy.php?token=secret-token
-- Active: :ballot_box_with_check:
-- SSL / TLS: :white_large_square: Skip certificate verification (only if using SSL, see [Bitbucket's documentation](https://confluence.atlassian.com/bitbucket/manage-webhooks-735643732.html#ManageWebhooks-skip_certificate) for more details)
-- Triggers: :radio_button: Repository push
-
-Click "Save" to save your settings, and the script should start working.
-
-![Example screenshot showing Bitbucket webhook settings](https://cloud.githubusercontent.com/assets/1123997/25353602/7aee9cde-28f5-11e7-9baa-eb1e1330017e.png)
-
-## Integration with CI/CD
-
-If you'd prefer to integrate git-deploy with your CI scripts rather than using traditional Webhooks, you can trigger the hook via the following `wget` command.
-
-```sh
-wget --quiet --output-document=- --content-on-error --header="Content-Type: application/json" --post-data='{"ref":"refs/heads/master"}' 'https://www.example.com/git-deploy/deploy.php?token=secret-token'
-```
-
-Additionally, you can add the parameters `sha=COMMIT_HASH` and `reset=true` to the URL in order to instruct git-deploy to reset to a specific commit. **Note that this will overwrite any local changes you may have made.** This can be useful for integration with things like [GitLab's Environments feature](https://gitlab.com/help/ci/environments).
-
----
-
-I appreciate the collaboration of @JacobDB
