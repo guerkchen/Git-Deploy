@@ -4,56 +4,73 @@ A PHP script to automatically pull from a GitHub repository to a web server when
 
 You can configure which branch this script pulls from.
 
-## On your server
+## Getting Started
 
-### SSH
+### Prerequisites
 
-Generate an SSH key and add it to your account so that `git pull` can be run without a password.
+Generate an SSH key and add it to your account so that `git pull` can be run on private repos and without a password.
 
-- [GitHub documentation](https://help.github.com/articles/generating-ssh-keys/)
+Check out the [GitHub documentation](https://help.github.com/articles/generating-ssh-keys/) for detailed instructions.
 
-### Configuration
+### Setup
 
-Copy the __git-deploy__ folder and its contents in to your public folder (typically public_html). Note that you can change the name of the folder if desired.
+1. Copy this repo into a publically accessible directory on your server (e.g. www, public_html, etc.)
 
-Rename __git-deploy/deploy.sample.php__ to __git-deploy/deploy.php__, and update each variable to a value that suits your needs. Multiple copies of __git-deploy/deploy.sample.php__ can be made for multiple projects or versions (you just need to change the webhook url to match the new name). An example of a live configuration is below.
+2. Rename `config.sample.php` to `config.php` and update each variable to the desired value. For example: 
 
-```PHP
-define("TOKEN", "secret-token");
-define("REMOTE_REPOSITORY", "git@github.com:username/custom-project.git");
-define("DIR", "/var/www/vhosts/repositories/custom-project");
-define("BRANCH", "refs/heads/master");
-define("LOGFILE", "deploy.log");
-define("GIT", "/usr/bin/git");
-define("MAX_EXECUTION_TIME", 180);
-define("BEFORE_PULL", "/usr/bin/git reset --hard @{u}");
-define("AFTER_PULL", "/usr/bin/node ./node_modules/gulp/bin/gulp.js default");
-```
-### Permissions
+    ```PHP
+    define('SECRET', 'sTrOnG_sEcReT');
+    define('DIR', '/var/www/example.com/');
+    define('BRANCH', 'refs/heads/master');
+    define('LOGFILE', 'git-deploy.log');
+    define('GIT', '/usr/bin/git');
+    define('DELETION', array('README.md', '.gitattributes'));
+    define('SLACK_HOOK', 'https://hooks.slack.com/services/SLACK_KEY';
+    ```
 
-When __deploy.php__ is called by the web-hook, the webserver user (`www`, `www-data`, `apache`, etc...) will attempt to run `git pull ...`. Since you probably cloned into the repository as yourself, and your user therefore owns it, the webserver user needs to be given write access. It is suggested this be accomplished by changing the repository group to the webserver user's and giving the group write permissions:
+    The `SLACK_HOOK` and `DELETION` variables can be empty if not required.
 
-1. Open a terminal to the directory containing the repository on the server.
-2. run `sudo chown -R yourusername:webserverusername custom-project-repo-dir/` to change the group of the repo.
-3. run `sudo chmod -R g+s custom-project-repo-dir/` to make the group assignment inherited for new files/dirs.
-4. run `sudo chmod -R 775 custom-project-repo-dir/` to set read & write for both owner and group.
+3. Adjust the permissions for the directory so that it is accessible by the webserver user (e.g. www, www-data, apache, etc.)
 
----
+    1. Open the termial and navigate to the directory containing  the repository on the server.
+    2. Run `sudo chown -R yourusername:webserverusername git-deploy` to change the group. 
+    3. Run `sudo chmod -R g+s git-deploy` to ensure that permissions are inherited by all files and directories.
+    4. Run `sudo chmod -R 775 git-deploy` to set read and write permissions.
 
-## On GitHub
+### External Services
 
-### GitHub
+#### GitHub
+
+You need to configure GitHub to notify your endpoint when the repository us updated. 
 
 In your repository, navigate to Settings &rarr; Webhooks &rarr; Add webhook, and use the following settings:
 
-- Payload URL: https://www.yoursite.com/git-deploy/deploy.php
-- Content type: application/json
-- Secret: The value of TOKEN in config.php
-- Which events would you like to trigger this webhook?: :radio_button: Just the push event
-- Active: :ballot_box_with_check:
+* *Payload URL*: https://www.yoursite.com/location-of/deploy.php
+* *Content type*: application/json
+* *Secret*: The value of `SECRET` in `config.php`
+* *Which events would you like to trigger this webhook?*: :radio_button: Just the push event
+* *Active*: :ballot_box_with_check: Selected
 
-Click "Add webhook" to save your settings, and the script should start working.
+Click 'Add webhook' to save your settings, and allow the script to start working. 
 
-![Example screenshot showing GitHub webhook settings](https://cloud.githubusercontent.com/assets/1123997/25409764/f05526d0-29d8-11e7-858d-f28de59bd300.png)
+#### Slack
 
+:warning: As of 29/07/2019, Slack is currently down so cannot complete...
 
+## Usage
+
+Once set up, the script will work automatically as the repository is updated. You are able to update the configuration as you wish.
+
+To check the status of the script you can:
+* View the output of the log at the `LOGFILE` location  provided within `config.php`
+* Head to your repository on GitHub. Navigate to Settings &rarr; Webhooks &rarr; Edit, and then view the recent deliveries section. 
+
+__(WIP)__ Add slack example
+
+## Author
+
+* Daniel Turner - [turnerdaniel](https://www.github.com/turnerdaniel)
+
+## Acknowledgements
+
+* [Vicente Guerra](https://www.github.com/vicenteguerra) - For their original work on the [git deploy](https://github.com/vicenteguerra/git-deploy) script which this project is based off of. 
