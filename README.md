@@ -83,6 +83,10 @@ For exmaple, Slack will show you this when setup correctly:
 
 ![Example Slack Notification](https://user-images.githubusercontent.com/35703802/62131486-39424a00-b2d3-11e9-8e6a-990eec2aef7f.png)
 
+## Licence
+
+Distributed under the MIT Licence. More information is available at [LICENSE](LICENSE).
+
 ## Author
 
 * Daniel Turner - [turnerdaniel](https://www.github.com/turnerdaniel)
