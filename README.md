@@ -41,7 +41,7 @@ Check out the [GitHub documentation](https://help.github.com/articles/generating
 
 #### GitHub
 
-You need to configure GitHub to notify your endpoint when the repository us updated. 
+You need to configure GitHub to notify your endpoint when the repository is updated. 
 
 In your repository, navigate to Settings &rarr; Webhooks &rarr; Add webhook, and use the following settings:
 
@@ -55,7 +55,20 @@ Click 'Add webhook' to save your settings, and allow the script to start working
 
 #### Slack
 
-:warning: As of 29/07/2019, Slack is currently down so cannot complete...
+You need to configure a Slack app so that the script can post messages to your workspace.
+
+1. [Sign in](https://slack.com/signin) to your Slack workspace using a web browser.
+
+2. At the top right, navigate to :gear: &rarr; Add an app, then type "Incoming Webhook" into the text field.
+
+3. Click on the Incoming Webhook app and create a new configurarion.
+
+4. Select the channel you wish the script to post to when the repository is updated, then click Add Incoming Webhooks Integration. 
+
+5. Copy the Webhook URL and set it as the value of `SLACK_HOOK` in `config.php`
+
+The script will now post the status of each pull to the Slack channel. You can customise the integration's settings such as appearence and channel as you see fit.  
+
 
 ## Usage
 
@@ -64,8 +77,7 @@ Once set up, the script will work automatically as the repository is updated. Yo
 To check the status of the script you can:
 * View the output of the log at the `LOGFILE` location  provided within `config.php`
 * Head to your repository on GitHub. Navigate to Settings &rarr; Webhooks &rarr; Edit, and then view the recent deliveries section. 
-
-__(WIP)__ Add slack example
+* View the message that have been posted by the integration on your Slack channel.
 
 ## Author
 
@@ -73,4 +85,4 @@ __(WIP)__ Add slack example
 
 ## Acknowledgements
 
-* [Vicente Guerra](https://www.github.com/vicenteguerra) - For their original work on the [git deploy](https://github.com/vicenteguerra/git-deploy) script which this project is based off of. 
+* [Vicente Guerra](https://www.github.com/vicenteguerra) - For their original work on the [git deploy](https://github.com/vicenteguerra/git-deploy) script which this project is based on.
