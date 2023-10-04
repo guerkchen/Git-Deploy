@@ -1,6 +1,8 @@
 <?php
 require_once('config.php');
 
+#src: https://github.com/turnerdaniel/Git-Deploy
+
 //read webhook contents, open logfile in append mode & get current time
 $payload = file_get_contents('php://input');
 $log     = fopen(LOGFILE, 'a');
@@ -40,11 +42,10 @@ else { //hash matches
 
     //check if push matches desired branch
     if ($json['ref'] === BRANCH) {
-        //check for valid git directory
-        if (is_dir(DIR) && file_exists(DIR . '.git')) {
+	    //check for valid git directory
+        if (is_dir(DIR) && file_exists(DIR . '/.git')) {
             //perform git pull
-            chdir(DIR);
-            $output = shell_exec(GIT . ' pull');
+		$output = shell_exec(GIT_PULL . ' ' . DIR . ' 2>&1');
             fputs($log, 'Git: ' . $output);
 
             //delete files if DELETION array is not empty

@@ -30,12 +30,7 @@ Check out the [GitHub documentation](https://help.github.com/articles/generating
 
     The `SLACK_HOOK` and `DELETION` variables can be empty if not required.
 
-3. Adjust the permissions for the directory so that it is accessible by the webserver user (e.g. www, www-data, apache, etc.)
-
-    1. Open the termial and navigate to the directory containing  the repository on the server.
-    2. Run `sudo chown -R yourusername:webserverusername git-deploy` to change the group. 
-    3. Run `sudo chmod -R g+s git-deploy` to ensure that permissions are inherited by all files and directories.
-    4. Run `sudo chmod -R 775 git-deploy` to set read and write permissions.
+3. Build git\_pull ```gcc -o git_pull git_pull.c```and set the SUID flag by calling ```chown root:root git_pull``` and ```chmod 6755 git_pull```
 
 ### External Services
 
